@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gabriola Tides</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f4f0;
+      --surface: #ffffff;
+      --surface2: #eeecea;
+      --surface3: #e5e3df;
+      --text: #1a1a18;
+      --text2: #6b6a66;
+      --text3: #a09e99;
+      --border: rgba(0,0,0,0.07);
+      --border2: rgba(0,0,0,0.10);
+      --up: #0a7c5c;
+      --up-bg: #e0f4ee;
+      --down-bg: #eeecea;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", sans-serif;
+      --radius: 16px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111110;
+        --surface: #1c1c1a;
+        --surface2: #242422;
+        --surface3: #2e2e2b;
+        --text: #f5f4f0;
+        --text2: #a09e99;
+        --text3: #6b6a66;
+        --border: rgba(255,255,255,0.07);
+        --border2: rgba(255,255,255,0.11);
+        --up: #3ecfa0;
+        --up-bg: #0c2820;
+        --down-bg: #242422;
+      }
+    }
+
+    html, body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    .header { margin-bottom: 32px; }
+    .header-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 8px;
+    }
+    .header-title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    /* Beach scene card */
+    .beach-card {
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    #beach-canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* Overlay readout on the canvas */
+    .beach-overlay {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      pointer-events: none;
+    }
+    .beach-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 4px;
+    }
+    .beach-value {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: #ffffff;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.25);
+    }
+    .beach-unit {
+      font-size: 16px;
+      font-weight: 400;
+      opacity: 0.8;
+      margin-left: 2px;
+    }
+    .beach-direction {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: inline-block;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .beach-direction.rising {
+      background: rgba(62, 207, 160, 0.25);
+      color: #a8f0d8;
+      border: 1px solid rgba(62,207,160,0.3);
+    }
+    .beach-direction.falling {
+      background: rgba(0,0,0,0.2);
+      color: rgba(255,255,255,0.75);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    /* Tide scale on the right */
+    .beach-scale {
+      position: absolute;
+      right: 16px;
+      top: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 0;
+      pointer-events: none;
+    }
+    .scale-tick {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      text-align: right;
+      letter-spacing: 0.03em;
+    }
+
+    /* Now block below canvas */
+    .now-block { margin-bottom: 28px; }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 10px;
+    }
+
+    /* Day tabs */
+    .day-tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+      padding-bottom: 2px;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .day-tabs::-webkit-scrollbar { display: none; }
+    .day-tab {
+      flex-shrink: 0;
+      background: var(--surface2);
+      color: var(--text2);
+      border: none;
+      border-radius: 10px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: var(--font);
+      white-space: nowrap;
+      transition: background 0.12s, color 0.12s;
+    }
+    .day-tab.active { background: var(--text); color: var(--bg); }
+    .day-tab:hover:not(.active) { background: var(--surface3); }
+
+    .date-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 18px;
+    }
+
+    /* Chart card */
+    .chart-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border2);
+      padding: 20px 16px 14px;
+      margin-bottom: 12px;
+    }
+    .chart-card svg { display: block; width: 100%; height: auto; }
+
+    /* Hi/Lo */
+    .hilo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .hilo-card { border-radius: 14px; padding: 16px 18px; }
+    .hilo-card.high { background: var(--up-bg); }
+    .hilo-card.low { background: var(--down-bg); }
+    .hilo-type {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .hilo-card.high .hilo-type { color: var(--up); }
+    .hilo-card.low .hilo-type { color: var(--text3); }
+    .hilo-value {
+      font-size: 25px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      color: var(--text);
+    }
+    .hilo-value span { font-size: 13px; font-weight: 400; color: var(--text2); margin-left: 2px; }
+    .hilo-time { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+    .status { text-align: center; padding: 56px 0; color: var(--text3); font-size: 14px; }
+    .error-card {
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      text-align: center;
+      color: var(--text2);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+    .error-card small { display: block; margin-top: 6px; color: var(--text3); font-size: 12px; }
+
+    .footer-note {
+      margin-top: 24px;
+      padding: 14px 16px;
+      background: var(--surface2);
+      border-radius: 12px;
+      font-size: 11.5px;
+      color: var(--text3);
+      line-height: 1.65;
+    }
+    .footer-note strong { color: var(--text2); font-weight: 600; }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-eyebrow">Gabriola Island · BC</div>
+    <div class="header-title">Tides</div>
+  </div>
+
+  <!-- Beach scene (today only) -->
+  <div id="beach-wrap" class="hidden">
+    <div class="beach-card">
+      <canvas id="beach-canvas" width="880" height="460"></canvas>
+      <div class="beach-overlay">
+        <div class="beach-label">Right now</div>
+        <div class="beach-value"><span id="beach-val">—</span><span class="beach-unit">m</span></div>
+        <div class="beach-direction" id="beach-dir">—</div>
+      </div>
+      <div class="beach-scale" id="beach-scale"></div>
+    </div>
+  </div>
+
+  <!-- Day tabs -->
+  <div class="day-tabs" id="day-tabs"></div>
+  <div class="date-label" id="date-label"></div>
+
+  <div class="status" id="loading-state">Loading tide data…</div>
+  <div class="error-card hidden" id="error-state">
+    Couldn't load tide data.
+    <small>The Canadian Hydrographic Service API may be temporarily unavailable.</small>
+  </div>
+
+  <div id="main-content" class="hidden">
+    <div class="chart-card">
+      <div class="section-label">24-hour curve</div>
+      <svg id="tide-svg" viewBox="0 0 400 130" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <div class="section-label" style="margin-top:20px;">Highs &amp; lows</div>
+    <div class="hilo-grid" id="hilo-grid"></div>
+
+    <div class="footer-note">
+      <strong>Data source:</strong> Canadian Hydrographic Service (IWLS API) · Harmac station (07735), 4 km SW of Gabriola Island. Astronomical predictions — actual levels vary with wind and weather.
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── API ──────────────────────────────────────────────────────────────────────
+const STATION = "07735";
+const API = "https://api-iwls.dfo-mpo.gc.ca/api/v1";
+let selectedOffset = 0;
+const cache = {};
+
+function getDateStr(offset) {
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  return d.toISOString().split("T")[0];
+}
+function dayTabLabel(o) {
+  const d = new Date(); d.setDate(d.getDate() + o);
+  if (o === 0) return "Today"; if (o === 1) return "Tomorrow";
+  return d.toLocaleDateString("en-CA", { weekday: "short" });
+}
+function fullDateLabel(o) {
+  const d = new Date(); d.setDate(d.getDate() + o);
+  return d.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
+}
+function fmt12(iso) {
+  const d = new Date(iso);
+  let h = d.getHours(), m = d.getMinutes(), ap = "am";
+  if (h >= 12) { ap = "pm"; if (h > 12) h -= 12; } if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2, "0")} ${ap}`;
+}
+async function fetchCurve(ds) {
+  const url = `${API}/stations/${STATION}/data?time-series-code=wlp&from=${ds}T00:00:00Z&to=${ds}T23:59:59Z&resolution=FIFTEEN_MINUTES`;
+  const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json(); return (d||[]).filter(x => x.eventDate && x.eventDate.startsWith(ds));
+}
+async function fetchHiLo(ds) {
+  const url = `${API}/stations/${STATION}/data?time-series-code=wlp-hilo&from=${ds}T00:00:00Z&to=${ds}T23:59:59Z`;
+  const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json(); return (d||[]).filter(x => x.eventDate && x.eventDate.startsWith(ds));
+}
+
+// ─── Beach scene ──────────────────────────────────────────────────────────────
+const canvas = document.getElementById("beach-canvas");
+const ctx = canvas.getContext("2d");
+const W = 880, H = 460;
+
+// Tide range for Gabriola (approx min/max in metres)
+const TIDE_MIN = -0.3, TIDE_MAX = 5.5;
+
+// Rocks: [cx, cy_base, rx, ry, shade]  — cy_base = vertical anchor from bottom
+const ROCKS = [
+  { x:60,  yb:0.08, rx:52, ry:28, c:"#5a5652" },
+  { x:130, yb:0.04, rx:36, ry:20, c:"#6a6460" },
+  { x:52,  yb:0.14, rx:28, ry:16, c:"#4e4a47" },
+  { x:200, yb:0.06, rx:44, ry:24, c:"#625e5a" },
+  { x:178, yb:0.11, rx:24, ry:14, c:"#706c68" },
+  { x:310, yb:0.03, rx:60, ry:30, c:"#585450" },
+  { x:370, yb:0.08, rx:38, ry:22, c:"#4a4643" },
+  { x:290, yb:0.12, rx:26, ry:16, c:"#6e6a66" },
+  { x:490, yb:0.05, rx:48, ry:26, c:"#565250" },
+  { x:560, yb:0.09, rx:32, ry:19, c:"#646060" },
+  { x:650, yb:0.04, rx:55, ry:28, c:"#525048" },
+  { x:720, yb:0.10, rx:40, ry:22, c:"#5e5a56" },
+  { x:790, yb:0.06, rx:34, ry:18, c:"#4c4846" },
+  { x:820, yb:0.13, rx:22, ry:13, c:"#6c6864" },
+  { x:440, yb:0.15, rx:18, ry:11, c:"#787470" },
+];
+
+// Wave animation state
+let wavePhase = 0;
+let currentTide = 2.5;
+let targetTide = 2.5;
+let animFrame = null;
+
+function tideToFrac(m) {
+  return (m - TIDE_MIN) / (TIDE_MAX - TIDE_MIN);
+}
+
+function drawScene(frac) {
+  ctx.clearRect(0, 0, W, H);
+
+  // Sky gradient — dusk-to-overcast Pacific feel
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+  sky.addColorStop(0, "#c8d8e8");
+  sky.addColorStop(0.5, "#d8e6f0");
+  sky.addColorStop(1, "#e4eef6");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H * 0.55);
+
+  // Distant treeline silhouette (Vancouver Island across the strait)
+  drawTrees();
+
+  // Water surface Y — frac=0 → bottom 18% of canvas, frac=1 → top 52% of canvas
+  const waterY = H * (0.82 - frac * 0.34);
+
+  // Draw water
+  drawWater(waterY);
+
+  // Shore / wet sand below water line — gravel beach texture
+  drawShore(waterY);
+
+  // Rocks (those below waterY are submerged = hidden/tinted)
+  drawRocks(waterY);
+
+  // Water edge foam line
+  drawFoam(waterY);
+
+  // Tide scale line (faint dotted)
+  drawTideMarker(waterY, frac);
+}
+
+function drawTrees() {
+  ctx.save();
+  // Horizon haze
+  const haze = ctx.createLinearGradient(0, H*0.35, 0, H*0.55);
+  haze.addColorStop(0, "rgba(200,218,234,0)");
+  haze.addColorStop(1, "rgba(214,228,242,0.7)");
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, H*0.35, W, H*0.2);
+
+  // Tree silhouette as irregular bumpy path
+  ctx.beginPath();
+  ctx.moveTo(0, H*0.54);
+  const pts = [
+    [0,0.50],[30,0.44],[55,0.47],[80,0.41],[110,0.44],[140,0.39],[165,0.43],
+    [190,0.37],[215,0.41],[240,0.36],[270,0.40],[300,0.34],[330,0.38],[360,0.35],
+    [390,0.39],[420,0.33],[450,0.37],[480,0.32],[510,0.36],[540,0.31],[570,0.35],
+    [600,0.30],[630,0.34],[660,0.29],[690,0.33],[720,0.28],[750,0.32],[780,0.27],
+    [810,0.31],[840,0.27],[870,0.30],[880,0.31],[880,0.55],[0,0.55]
+  ];
+  pts.forEach(([x,y]) => ctx.lineTo(x, H*y));
+  ctx.closePath();
+  ctx.fillStyle = "#3a4a3c";
+  ctx.fill();
+
+  // Slightly lighter second layer (foreground trees, closer)
+  ctx.beginPath();
+  ctx.moveTo(0, H*0.56);
+  const pts2 = [
+    [0,0.52],[40,0.50],[70,0.53],[100,0.49],[130,0.52],[160,0.48],[200,0.51],
+    [240,0.47],[280,0.50],[320,0.46],[360,0.49],[400,0.45],[440,0.48],[480,0.44],
+    [520,0.47],[560,0.43],[600,0.46],[640,0.43],[680,0.46],[720,0.42],[760,0.45],
+    [800,0.42],[840,0.45],[880,0.43],[880,0.57],[0,0.57]
+  ];
+  pts2.forEach(([x,y]) => ctx.lineTo(x, H*y));
+  ctx.closePath();
+  ctx.fillStyle = "#2e3d30";
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawWater(waterY) {
+  ctx.save();
+  // Deep water fill
+  const wg = ctx.createLinearGradient(0, waterY - 10, 0, H);
+  wg.addColorStop(0, "#4a7a9b");
+  wg.addColorStop(0.15, "#3d6a88");
+  wg.addColorStop(0.5, "#2e5570");
+  wg.addColorStop(1, "#1e3a50");
+  ctx.fillStyle = wg;
+  ctx.fillRect(0, waterY, W, H - waterY);
+
+  // Subtle surface shimmer lines
+  for (let i = 0; i < 6; i++) {
+    const sy = waterY + 10 + i * 18 + Math.sin(wavePhase + i * 0.8) * 3;
+    ctx.beginPath();
+    ctx.moveTo(0, sy);
+    for (let x = 0; x <= W; x += 8) {
+      ctx.lineTo(x, sy + Math.sin(x * 0.018 + wavePhase + i) * 1.5);
+    }
+    ctx.strokeStyle = `rgba(120,180,220,${0.12 - i * 0.015})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawShore(waterY) {
+  ctx.save();
+  // Gravel/sand gradient below water — visible on low tide
+  const sg = ctx.createLinearGradient(0, waterY, 0, H);
+  sg.addColorStop(0, "#7a7068");
+  sg.addColorStop(0.3, "#8a8078");
+  sg.addColorStop(1, "#6a6058");
+  ctx.fillStyle = sg;
+  ctx.fillRect(0, waterY + 2, W, H - waterY);
+
+  // Pebble texture dots
+  ctx.save();
+  const seed = 42;
+  for (let i = 0; i < 280; i++) {
+    const px = ((i * 2731 + seed) % W);
+    const py_frac = ((i * 1847 + seed) % 100) / 100;
+    const py = waterY + 8 + py_frac * (H - waterY - 10);
+    const r = 1.5 + ((i * 317) % 3);
+    const bright = 90 + (i * 73) % 30;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${bright},${bright-4},${bright-8})`;
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawRocks(waterY) {
+  ROCKS.forEach(rock => {
+    const ry = H - rock.yb * H;
+    const isSubmerged = ry < waterY + rock.ry * 0.6;
+    if (isSubmerged) return; // fully under water, don't draw
+
+    const partiallySubmerged = ry < waterY + rock.ry;
+    ctx.save();
+
+    if (partiallySubmerged) {
+      // clip so rock only shows above water
+      ctx.beginPath();
+      ctx.rect(0, 0, W, waterY + 3);
+      ctx.clip();
+    }
+
+    // Rock body
+    ctx.beginPath();
+    ctx.ellipse(rock.x, ry, rock.rx, rock.ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = rock.c;
+    ctx.fill();
+
+    // Rock highlight (wet sheen)
+    const rg = ctx.createRadialGradient(rock.x - rock.rx*0.2, ry - rock.ry*0.3, 1, rock.x, ry, rock.rx);
+    rg.addColorStop(0, "rgba(255,255,255,0.18)");
+    rg.addColorStop(0.5, "rgba(255,255,255,0.04)");
+    rg.addColorStop(1, "rgba(0,0,0,0.1)");
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.ellipse(rock.x, ry, rock.rx, rock.ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Barnacle texture (small dots on upper surface)
+    for (let b = 0; b < 5; b++) {
+      const bx = rock.x + (b - 2) * rock.rx * 0.28;
+      const by = ry - rock.ry * 0.35 + (b % 2) * 4;
+      ctx.beginPath();
+      ctx.arc(bx, by, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(200,195,185,0.55)";
+      ctx.fill();
+    }
+
+    ctx.restore();
+  });
+
+  // Submerged rock shadows under water (visible tint)
+  ROCKS.forEach(rock => {
+    const ry = H - rock.yb * H;
+    const isSubmerged = ry < waterY + rock.ry * 0.6;
+    if (!isSubmerged) return;
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.ellipse(rock.x, ry, rock.rx, rock.ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#1a2a35";
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawFoam(waterY) {
+  ctx.save();
+  // Wave surface — animated sine
+  ctx.beginPath();
+  ctx.moveTo(0, waterY);
+  for (let x = 0; x <= W; x += 4) {
+    const y = waterY
+      + Math.sin(x * 0.022 + wavePhase) * 3.5
+      + Math.sin(x * 0.011 + wavePhase * 0.7) * 2
+      + Math.sin(x * 0.038 + wavePhase * 1.3) * 1.2;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H); ctx.lineTo(0, H);
+  ctx.closePath();
+
+  const wg2 = ctx.createLinearGradient(0, waterY - 6, 0, waterY + 20);
+  wg2.addColorStop(0, "rgba(100,160,200,0.9)");
+  wg2.addColorStop(0.4, "rgba(74,122,155,1)");
+  wg2.addColorStop(1, "rgba(60,100,130,1)");
+  ctx.fillStyle = wg2;
+  ctx.fill();
+
+  // Foam/froth line at the very edge
+  ctx.beginPath();
+  ctx.moveTo(0, waterY);
+  for (let x = 0; x <= W; x += 4) {
+    const y = waterY
+      + Math.sin(x * 0.022 + wavePhase) * 3.5
+      + Math.sin(x * 0.011 + wavePhase * 0.7) * 2
+      + Math.sin(x * 0.038 + wavePhase * 1.3) * 1.2;
+    ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(235,245,252,0.65)";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Secondary foam wisps
+  for (let w = 0; w < 3; w++) {
+    ctx.beginPath();
+    const offset = w * 7 + Math.sin(wavePhase * 0.5 + w) * 4;
+    for (let x = w * 80; x < W - w * 40; x += 4) {
+      const y = waterY + offset
+        + Math.sin(x * 0.025 + wavePhase + w * 1.2) * 2
+        + Math.sin(x * 0.012 + wavePhase * 0.6) * 1.5;
+      if (x === w * 80) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = `rgba(220,238,250,${0.2 - w * 0.05})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawTideMarker(waterY, frac) {
+  // Nothing — kept clean, the water position IS the marker
+}
+
+// Smooth tide animation
+function animateTide() {
+  wavePhase += 0.022;
+  currentTide += (targetTide - currentTide) * 0.04;
+  const frac = tideToFrac(currentTide);
+  drawScene(frac);
+  animFrame = requestAnimationFrame(animateTide);
+}
+
+function setTideTarget(metres) {
+  targetTide = Math.max(TIDE_MIN, Math.min(TIDE_MAX, metres));
+}
+
+function buildScale(metres) {
+  const scaleEl = document.getElementById("beach-scale");
+  scaleEl.innerHTML = "";
+  const steps = [TIDE_MAX, (TIDE_MIN+TIDE_MAX)*0.75, (TIDE_MIN+TIDE_MAX)*0.5, (TIDE_MIN+TIDE_MAX)*0.25, TIDE_MIN];
+  steps.forEach(v => {
+    const tick = document.createElement("div");
+    tick.className = "scale-tick";
+    tick.textContent = v.toFixed(1) + "m";
+    scaleEl.appendChild(tick);
+  });
+}
+
+function updateBeachOverlay(curve) {
+  const now = new Date();
+  let bestIdx = 0, bestDiff = Infinity;
+  curve.forEach((pt, i) => {
+    const diff = Math.abs(new Date(pt.eventDate) - now);
+    if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+  });
+  const current = parseFloat(curve[bestIdx]?.value ?? 2.5);
+  const prev = bestIdx > 0 ? parseFloat(curve[bestIdx - 1].value) : current;
+  const rising = current >= prev;
+
+  document.getElementById("beach-val").textContent = current.toFixed(2);
+  const dir = document.getElementById("beach-dir");
+  dir.textContent = rising ? "↑ Rising" : "↓ Falling";
+  dir.className = "beach-direction " + (rising ? "rising" : "falling");
+
+  setTideTarget(current);
+}
+
+// ─── Chart SVG ────────────────────────────────────────────────────────────────
+function svgEl(tag, attrs) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  Object.entries(attrs || {}).forEach(([k,v]) => el.setAttribute(k, v));
+  return el;
+}
+
+function renderChart(curve) {
+  const svg = document.getElementById("tide-svg");
+  svg.innerHTML = "";
+  if (!curve.length) return;
+
+  const W2=400, H2=130, PL=30, PR=8, PT=8, PB=26;
+  const IW=W2-PL-PR, IH=H2-PT-PB;
+  const vals=curve.map(d=>parseFloat(d.value));
+  const times=curve.map(d=>new Date(d.eventDate));
+  const lo=Math.min(...vals), hi=Math.max(...vals), rng=hi-lo||1;
+  const tx=i=>PL+(i/(curve.length-1))*IW;
+  const ty=v=>PT+IH-((v-lo)/rng)*IH;
+
+  const defs=svgEl("defs");
+  const grad=svgEl("linearGradient",{id:"wg",x1:"0",y1:"0",x2:"0",y2:"1"});
+  grad.append(svgEl("stop",{offset:"0%","stop-color":"#3d8a6a","stop-opacity":"0.18"}));
+  grad.append(svgEl("stop",{offset:"100%","stop-color":"#3d8a6a","stop-opacity":"0"}));
+  const clip=svgEl("clipPath",{id:"wc"});
+  clip.append(svgEl("rect",{x:PL,y:PT,width:IW,height:IH}));
+  defs.append(grad,clip); svg.append(defs);
+
+  [lo,(lo+hi)/2,hi].forEach(v=>{
+    const y=ty(v);
+    svg.append(svgEl("line",{x1:PL,y1:y,x2:PL+IW,y2:y,stroke:"rgba(0,0,0,0.07)","stroke-width":"1"}));
+    const t=svgEl("text");
+    t.setAttribute("x",PL-4); t.setAttribute("y",y+4);
+    t.setAttribute("text-anchor","end"); t.setAttribute("font-size","9.5");
+    t.setAttribute("fill","#a09e99");
+    t.setAttribute("font-family","-apple-system,BlinkMacSystemFont,sans-serif");
+    t.textContent=v.toFixed(1); svg.append(t);
+  });
+
+  const areaPts=[`M ${PL},${PT+IH}`].concat(curve.map((d,i)=>`L ${tx(i).toFixed(1)},${ty(parseFloat(d.value)).toFixed(1)}`)).concat([`L ${PL+IW},${PT+IH}`,"Z"]).join(" ");
+  svg.append(svgEl("path",{d:areaPts,fill:"url(#wg)","clip-path":"url(#wc)"}));
+
+  const linePts=curve.map((d,i)=>`${tx(i).toFixed(1)},${ty(parseFloat(d.value)).toFixed(1)}`).join(" ");
+  svg.append(svgEl("polyline",{points:linePts,fill:"none",stroke:"#0a7c5c","stroke-width":"2","stroke-linejoin":"round","stroke-linecap":"round","clip-path":"url(#wc)"}));
+
+  [0,6,12,18,24].forEach(h=>{
+    const x=PL+(h/24)*IW;
+    const lbl=h===0?"12a":h<12?`${h}a`:h===12?"12p":h===24?"":h>12?`${h-12}p`:`${h}p`;
+    svg.append(svgEl("line",{x1:x,y1:PT+IH,x2:x,y2:PT+IH+4,stroke:"rgba(0,0,0,0.08)","stroke-width":"1"}));
+    const t=svgEl("text");
+    t.setAttribute("x",x); t.setAttribute("y",H2-2);
+    t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","9.5");
+    t.setAttribute("fill","#a09e99");
+    t.setAttribute("font-family","-apple-system,BlinkMacSystemFont,sans-serif");
+    t.textContent=lbl; svg.append(t);
+  });
+
+  if (selectedOffset===0 && times.length) {
+    const now=new Date(), start=times[0], end=times[times.length-1];
+    const frac=Math.max(0,Math.min(1,(now-start)/(end-start)));
+    const nx=PL+frac*IW;
+    const ni=Math.min(Math.round(frac*(curve.length-1)),curve.length-1);
+    const ny=ty(vals[ni]);
+    svg.append(svgEl("line",{x1:nx,y1:PT,x2:nx,y2:PT+IH,stroke:"#1a1a18","stroke-width":"1","stroke-dasharray":"2,3",opacity:"0.3"}));
+    svg.append(svgEl("circle",{cx:nx,cy:ny,r:"4.5",fill:"#1a1a18",stroke:"white","stroke-width":"2.5"}));
+  }
+}
+
+function renderHiLo(events) {
+  const grid=document.getElementById("hilo-grid");
+  grid.innerHTML="";
+  if (!events.length) {
+    grid.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0;grid-column:1/-1">No tide event data available.</div>';
+    return;
+  }
+  [...events].sort((a,b)=>new Date(a.eventDate)-new Date(b.eventDate)).forEach(e=>{
+    const v=parseFloat(e.value), isH=v>2.0;
+    const card=document.createElement("div");
+    card.className="hilo-card "+(isH?"high":"low");
+    card.innerHTML=`<div class="hilo-type">${isH?"High tide":"Low tide"}</div><div class="hilo-value">${v.toFixed(2)}<span>m</span></div><div class="hilo-time">${fmt12(e.eventDate)}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ─── Load & render ────────────────────────────────────────────────────────────
+async function loadDay(offset) {
+  document.getElementById("loading-state").classList.remove("hidden");
+  document.getElementById("error-state").classList.add("hidden");
+  document.getElementById("main-content").classList.add("hidden");
+  document.getElementById("beach-wrap").classList.add("hidden");
+  document.getElementById("date-label").textContent = fullDateLabel(offset);
+
+  if (cache[offset]) {
+    const { curve, hilo } = cache[offset];
+    applyData(curve, hilo, offset);
+    return;
+  }
+  try {
+    const ds = getDateStr(offset);
+    const [curve, hilo] = await Promise.all([fetchCurve(ds), fetchHiLo(ds)]);
+    cache[offset] = { curve, hilo };
+    applyData(curve, hilo, offset);
+  } catch(err) {
+    console.error(err);
+    document.getElementById("loading-state").classList.add("hidden");
+    document.getElementById("error-state").classList.remove("hidden");
+  }
+}
+
+function applyData(curve, hilo, offset) {
+  document.getElementById("loading-state").classList.add("hidden");
+  document.getElementById("main-content").classList.remove("hidden");
+
+  if (offset === 0 && curve.length) {
+    document.getElementById("beach-wrap").classList.remove("hidden");
+    updateBeachOverlay(curve);
+    buildScale();
+  }
+
+  renderChart(curve);
+  renderHiLo(hilo);
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function buildTabs() {
+  const container = document.getElementById("day-tabs");
+  for (let i = 0; i <= 6; i++) {
+    const btn = document.createElement("button");
+    btn.className = "day-tab" + (i === 0 ? " active" : "");
+    btn.textContent = dayTabLabel(i);
+    btn.addEventListener("click", () => {
+      if (selectedOffset === i) return;
+      selectedOffset = i;
+      container.querySelectorAll(".day-tab").forEach((b, idx) => b.classList.toggle("active", idx === i));
+      loadDay(i);
+    });
+    container.appendChild(btn);
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+buildTabs();
+// Start animation loop immediately with a placeholder tide
+animateTide();
+loadDay(0);
+</script>
+</body>
+</html>
