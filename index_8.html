@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Gabriola Tides</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f8f8;--surface:#ffffff;--surface2:#f0f0f0;--surface3:#e8e8e8;
+  --text:#1a1a18;--text2:#6b6a66;--text3:#a09e99;
+  --border:rgba(0,0,0,.07);--border2:rgba(0,0,0,.09);
+  --up:#0a7c5c;--up-bg:#e0f4ee;--down-bg:#f0f0f0;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Segoe UI",sans-serif
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111110;--surface:#1c1c1a;--surface2:#242422;--surface3:#2e2e2b;
+  --text:#f5f4f0;--text2:#a09e99;--text3:#6b6a66;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.11);
+  --up:#3ecfa0;--up-bg:#0c2820;--down-bg:#242422
+}}
+html,body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+.app{max-width:440px;margin:0 auto;padding:48px 24px 80px}
+
+.live-pill{display:inline-flex;align-items:center;gap:6px;background:#e0f4ee;color:#0a7c5c;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:5px 12px;border-radius:20px;margin-bottom:12px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#0a7c5c;animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+@media(prefers-color-scheme:dark){.live-pill{background:#0c2820;color:#3ecfa0}.live-dot{background:#3ecfa0}}
+
+.tide-heading{font-size:36px;font-weight:700;letter-spacing:-.03em;color:var(--text);margin-bottom:28px;line-height:1.1}
+
+.beach-wrap{border-radius:16px;overflow:hidden;margin-bottom:20px;position:relative}
+#bc{display:block;width:100%;height:auto}
+.beach-number{position:absolute;top:16px;left:20px;pointer-events:none}
+.beach-val{font-size:44px;font-weight:700;letter-spacing:-.04em;line-height:1;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.3)}
+.beach-unit{font-size:18px;font-weight:400;opacity:.75;margin-left:2px}
+
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:24px;padding-bottom:2px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;background:var(--surface2);color:var(--text2);border:none;border-radius:10px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font);white-space:nowrap;transition:background .12s,color .12s}
+.tab.active{background:var(--text);color:var(--bg)}
+.tab:hover:not(.active){background:var(--surface3)}
+.dlabel{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:18px}
+.slabel{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.chart-card{background:var(--surface);border-radius:16px;border:1px solid var(--border2);padding:20px 16px 14px;margin-bottom:16px}
+.chart-card svg{display:block;width:100%;height:auto;overflow:visible}
+.hilo{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.hilo-card{border-radius:12px;padding:12px 8px;text-align:center}
+.hilo-card.hi{background:var(--up-bg)}
+.hilo-card.lo{background:var(--down-bg)}
+.hilo-type{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
+.hilo-card.hi .hilo-type{color:var(--up)}
+.hilo-card.lo .hilo-type{color:var(--text3)}
+.hilo-val{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--text);line-height:1}
+.hilo-val span{font-size:11px;font-weight:400;color:var(--text2);margin-left:1px}
+.hilo-time{font-size:11px;color:var(--text2);margin-top:5px}
+.hilo-pill{display:inline-block;margin-bottom:5px;font-size:9px;font-weight:600;letter-spacing:.04em;background:rgba(0,0,0,.07);color:var(--text3);padding:2px 7px;border-radius:20px}
+.status{text-align:center;padding:56px 0;color:var(--text3);font-size:14px}
+.errcard{background:var(--surface2);border-radius:16px;padding:28px 24px;text-align:center;color:var(--text2);font-size:14px;line-height:1.65}
+.errcard small{display:block;margin-top:6px;color:var(--text3);font-size:12px}
+.fnote{margin-top:24px;padding:14px 16px;background:var(--surface2);border-radius:12px;font-size:11.5px;color:var(--text3);line-height:1.65}
+.fnote strong{color:var(--text2);font-weight:600}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="live-pill"><span class="live-dot"></span>Live</div>
+  <div class="tide-heading" id="tide-heading">Tides</div>
+
+  <div id="beach-wrap" class="beach-wrap hidden">
+    <canvas id="bc" width="880" height="460"></canvas>
+    <div class="beach-number">
+      <div class="beach-val"><span id="oval">—</span><span class="beach-unit">m</span></div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="dlabel" id="dlabel"></div>
+  <div class="status" id="loading">Loading tide data…</div>
+  <div class="errcard hidden" id="err">Couldn't load tide data.<small>The Canadian Hydrographic Service API may be temporarily unavailable.</small></div>
+  <div id="main" class="hidden">
+    <div class="chart-card">
+      <div class="slabel">24-hour curve</div>
+      <svg id="svg" viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="slabel">Highs &amp; lows</div>
+    <div class="hilo" id="hilo"></div>
+    <div class="fnote"><strong>Data:</strong> Canadian Hydrographic Service · Silva Bay station, Gabriola Island. Astronomical predictions only.</div>
+  </div>
+</div>
+<script>
+var STID="5cebf1de3d0f4a073c4bb9d3";
+var BASE="https://api-iwls.dfo-mpo.gc.ca/api/v1";
+var PX="https://corsproxy.io/?url=";
+var offset=0,cache={},wave=0,cur=2.5,tgt=2.5,TMIN=-0.3,TMAX=5.5;
+var canvas=document.getElementById("bc"),ctx=canvas.getContext("2d"),W=880,H=460;
+var RK=[{x:60,yb:.08,rx:52,ry:28,c:"#5a5652"},{x:130,yb:.04,rx:36,ry:20,c:"#6a6460"},{x:52,yb:.14,rx:28,ry:16,c:"#4e4a47"},{x:200,yb:.06,rx:44,ry:24,c:"#625e5a"},{x:178,yb:.11,rx:24,ry:14,c:"#706c68"},{x:310,yb:.03,rx:60,ry:30,c:"#585450"},{x:370,yb:.08,rx:38,ry:22,c:"#4a4643"},{x:290,yb:.12,rx:26,ry:16,c:"#6e6a66"},{x:490,yb:.05,rx:48,ry:26,c:"#565250"},{x:560,yb:.09,rx:32,ry:19,c:"#646060"},{x:650,yb:.04,rx:55,ry:28,c:"#525048"},{x:720,yb:.10,rx:40,ry:22,c:"#5e5a56"},{x:790,yb:.06,rx:34,ry:18,c:"#4c4846"},{x:820,yb:.13,rx:22,ry:13,c:"#6c6864"},{x:440,yb:.15,rx:18,ry:11,c:"#787470"}];
+
+// Pacific time helpers
+function toPT(date){
+  var s=date.toLocaleString("en-CA",{timeZone:"America/Vancouver"});
+  return new Date(s);
+}
+function ptDateStr(date){
+  var d=toPT(date);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function ds(o){
+  var d=new Date();d.setDate(d.getDate()+o);return ptDateStr(d);
+}
+function tl(o){
+  var d=new Date();d.setDate(d.getDate()+o);
+  if(o===0)return"Today";if(o===1)return"Tomorrow";
+  return toPT(d).toLocaleDateString("en-CA",{weekday:"short"});
+}
+function fl(o){
+  var d=new Date();d.setDate(d.getDate()+o);
+  return toPT(d).toLocaleDateString("en-CA",{weekday:"long",month:"long",day:"numeric"});
+}
+function fm(iso){
+  var d=new Date(iso);
+  var pt=toPT(d);
+  var h=pt.getHours(),m=pt.getMinutes(),ap="am";
+  if(h>=12){ap="pm";if(h>12)h-=12}if(h===0)h=12;
+  return h+":"+(m<10?"0":"")+m+" "+ap;
+}
+
+async function apiFetch(path){
+  try{var r=await fetch(BASE+path);if(r.ok)return r.json()}catch(e){}
+  try{var r2=await fetch(PX+encodeURIComponent(BASE+path));if(r2.ok)return r2.json()}catch(e){}
+  throw new Error("fail");
+}
+async function getCurve(date){
+  var d=await apiFetch("/stations/"+STID+"/data?time-series-code=wlp&from="+date+"T00:00:00Z&to="+date+"T23:59:59Z&resolution=FIFTEEN_MINUTES");
+  return d||[];
+}
+async function getHiLo(date){
+  var d=await apiFetch("/stations/"+STID+"/data?time-series-code=wlp-hilo&from="+date+"T00:00:00Z&to="+date+"T23:59:59Z");
+  return d||[];
+}
+
+function fr(m){return(m-TMIN)/(TMAX-TMIN)}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  var sk=ctx.createLinearGradient(0,0,0,H*.55);sk.addColorStop(0,"#c8d8e8");sk.addColorStop(.5,"#d8e6f0");sk.addColorStop(1,"#e4eef6");ctx.fillStyle=sk;ctx.fillRect(0,0,W,H*.55);
+  ctx.save();
+  var hz=ctx.createLinearGradient(0,H*.35,0,H*.55);hz.addColorStop(0,"rgba(200,218,234,0)");hz.addColorStop(1,"rgba(214,228,242,.6)");ctx.fillStyle=hz;ctx.fillRect(0,H*.35,W,H*.2);
+  var p1=[[0,.50],[30,.44],[55,.47],[80,.41],[110,.44],[140,.39],[165,.43],[190,.37],[215,.41],[240,.36],[270,.40],[300,.34],[330,.38],[360,.35],[390,.39],[420,.33],[450,.37],[480,.32],[510,.36],[540,.31],[570,.35],[600,.30],[630,.34],[660,.29],[690,.33],[720,.28],[750,.32],[780,.27],[810,.31],[840,.27],[870,.30],[880,.31],[880,.55],[0,.55]];
+  ctx.beginPath();ctx.moveTo(0,H*.54);p1.forEach(function(pt){ctx.lineTo(pt[0],H*pt[1])});ctx.closePath();ctx.fillStyle="#3a4a3c";ctx.fill();
+  var p2=[[0,.52],[40,.50],[70,.53],[100,.49],[130,.52],[160,.48],[200,.51],[240,.47],[280,.50],[320,.46],[360,.49],[400,.45],[440,.48],[480,.44],[520,.47],[560,.43],[600,.46],[640,.43],[680,.46],[720,.42],[760,.45],[800,.42],[840,.45],[880,.43],[880,.57],[0,.57]];
+  ctx.beginPath();ctx.moveTo(0,H*.56);p2.forEach(function(pt){ctx.lineTo(pt[0],H*pt[1])});ctx.closePath();ctx.fillStyle="#2e3d30";ctx.fill();
+  ctx.restore();
+  var wy=H*(.82-fr(cur)*.34);
+  ctx.save();var wg=ctx.createLinearGradient(0,wy-10,0,H);wg.addColorStop(0,"#4a7a9b");wg.addColorStop(.15,"#3d6a88");wg.addColorStop(.5,"#2e5570");wg.addColorStop(1,"#1e3a50");ctx.fillStyle=wg;ctx.fillRect(0,wy,W,H-wy);
+  for(var i=0;i<5;i++){var sy=wy+10+i*18+Math.sin(wave+i*.8)*3;ctx.beginPath();ctx.moveTo(0,sy);for(var x=0;x<=W;x+=8)ctx.lineTo(x,sy+Math.sin(x*.018+wave+i)*1.5);ctx.strokeStyle="rgba(120,180,220,"+(0.11-i*.015)+")";ctx.lineWidth=1;ctx.stroke()}
+  ctx.restore();
+  ctx.save();var sg=ctx.createLinearGradient(0,wy,0,H);sg.addColorStop(0,"#7a7068");sg.addColorStop(.3,"#8a8078");sg.addColorStop(1,"#6a6058");ctx.fillStyle=sg;ctx.fillRect(0,wy+2,W,H-wy);
+  for(var i=0;i<260;i++){var px=(i*2731+42)%W,pf=(i*1847+42)%100/100,py=wy+8+pf*(H-wy-10),r=1.5+(i*317)%3,br=90+(i*73)%30;ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fillStyle="rgb("+br+","+(br-4)+","+(br-8)+")";ctx.fill()}
+  ctx.restore();
+  RK.forEach(function(rock){var ry=H-rock.yb*H;if(ry<wy+rock.ry*.6)return;ctx.save();if(ry<wy+rock.ry){ctx.beginPath();ctx.rect(0,0,W,wy+3);ctx.clip()}ctx.beginPath();ctx.ellipse(rock.x,ry,rock.rx,rock.ry,0,0,Math.PI*2);ctx.fillStyle=rock.c;ctx.fill();var rg=ctx.createRadialGradient(rock.x-rock.rx*.2,ry-rock.ry*.3,1,rock.x,ry,rock.rx);rg.addColorStop(0,"rgba(255,255,255,.18)");rg.addColorStop(.5,"rgba(255,255,255,.04)");rg.addColorStop(1,"rgba(0,0,0,.1)");ctx.fillStyle=rg;ctx.beginPath();ctx.ellipse(rock.x,ry,rock.rx,rock.ry,0,0,Math.PI*2);ctx.fill();for(var b=0;b<5;b++){var bx=rock.x+(b-2)*rock.rx*.28,by=ry-rock.ry*.35+(b%2)*4;ctx.beginPath();ctx.arc(bx,by,1.5,0,Math.PI*2);ctx.fillStyle="rgba(200,195,185,.55)";ctx.fill()}ctx.restore()});
+  RK.forEach(function(rock){var ry=H-rock.yb*H;if(ry>=wy+rock.ry*.6)return;ctx.save();ctx.globalAlpha=.22;ctx.beginPath();ctx.ellipse(rock.x,ry,rock.rx,rock.ry,0,0,Math.PI*2);ctx.fillStyle="#1a2a35";ctx.fill();ctx.restore()});
+  ctx.save();ctx.beginPath();ctx.moveTo(0,wy);for(var x=0;x<=W;x+=4){var y=wy+Math.sin(x*.022+wave)*3.5+Math.sin(x*.011+wave*.7)*2+Math.sin(x*.038+wave*1.3)*1.2;ctx.lineTo(x,y)}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();var fg=ctx.createLinearGradient(0,wy-6,0,wy+20);fg.addColorStop(0,"rgba(100,160,200,.9)");fg.addColorStop(.4,"rgba(74,122,155,1)");fg.addColorStop(1,"rgba(60,100,130,1)");ctx.fillStyle=fg;ctx.fill();ctx.beginPath();ctx.moveTo(0,wy);for(var x=0;x<=W;x+=4){var y=wy+Math.sin(x*.022+wave)*3.5+Math.sin(x*.011+wave*.7)*2+Math.sin(x*.038+wave*1.3)*1.2;ctx.lineTo(x,y)}ctx.strokeStyle="rgba(235,245,252,.65)";ctx.lineWidth=2.5;ctx.stroke();ctx.restore();
+  // Sea level line at 0m
+  var slY=H*(.82-fr(0)*.34);
+  if(slY>wy+12&&slY<H-10){
+    ctx.save();
+    ctx.setLineDash([6,5]);ctx.strokeStyle="rgba(255,255,255,.35)";ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,slY);ctx.lineTo(W,slY);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font="600 18px -apple-system,sans-serif";
+    ctx.fillStyle="rgba(255,255,255,.4)";
+    ctx.fillText("Sea level",16,slY-7);
+    ctx.restore();
+  }
+}
+function loop(){wave+=.022;cur+=(tgt-cur)*.04;draw();requestAnimationFrame(loop)}
+
+function getTideHeading(cv,hiloEvents){
+  if(!cv||!cv.length)return"Tides";
+  var now=new Date();
+  var bi=0,bd=Infinity;
+  cv.forEach(function(pt,i){var d=Math.abs(new Date(pt.eventDate)-now);if(d<bd){bd=d;bi=i}});
+  var v=parseFloat(cv[bi].value),pv=bi>0?parseFloat(cv[bi-1].value):v;
+  var rising=v>=pv;
+  // Check if within 45 mins of a hi/lo event
+  if(hiloEvents&&hiloEvents.length){
+    var sorted=hiloEvents.slice().sort(function(a,b){return new Date(a.eventDate)-new Date(b.eventDate)});
+    var firstIsHigh=sorted.length>1&&parseFloat(sorted[0].value)>parseFloat(sorted[1].value);
+    for(var i=0;i<sorted.length;i++){
+      var diff=Math.abs(new Date(sorted[i].eventDate)-now)/60000;
+      if(diff<45){
+        var isHigh=(i%2===0)===firstIsHigh;
+        return isHigh?"High tide":"Low tide";
+      }
+    }
+  }
+  return rising?"Rising tide":"Falling tide";
+}
+
+function uo(cv,hl){
+  var now=new Date(),bi=0,bd=Infinity;
+  cv.forEach(function(pt,i){var d=Math.abs(new Date(pt.eventDate)-now);if(d<bd){bd=d;bi=i}});
+  var v=parseFloat(cv[bi]?cv[bi].value:2.5);
+  document.getElementById("oval").textContent=v.toFixed(2);
+  tgt=Math.max(TMIN,Math.min(TMAX,v));
+  document.getElementById("tide-heading").textContent=getTideHeading(cv,hl);
+}
+
+function se(tag,at){var el=document.createElementNS("http://www.w3.org/2000/svg",tag);Object.keys(at||{}).forEach(function(k){el.setAttribute(k,at[k])});return el}
+
+function rc(cv){
+  var svg=document.getElementById("svg");svg.innerHTML="";if(!cv.length)return;
+  var W2=400,H2=140,PL=30,PR=8,PT=14,PB=26,IW=W2-PL-PR,IH=H2-PT-PB;
+  var vals=cv.map(function(d){return parseFloat(d.value)});
+  var times=cv.map(function(d){return new Date(d.eventDate)});
+  var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals),rng=hi-lo||1;
+  var tStart=times[0],tEnd=times[times.length-1],tSpan=tEnd-tStart||1;
+  var tx=function(i){return PL+((times[i]-tStart)/tSpan)*IW};
+  var ty=function(v){return PT+IH-((v-lo)/rng)*IH};
+  var df=se("defs");
+  var gr=se("linearGradient",{id:"g",x1:"0",y1:"0",x2:"0",y2:"1"});
+  gr.appendChild(se("stop",{offset:"0%","stop-color":"#3d8a6a","stop-opacity":"0.18"}));
+  gr.appendChild(se("stop",{offset:"100%","stop-color":"#3d8a6a","stop-opacity":"0"}));
+  var cl=se("clipPath",{id:"c"});cl.appendChild(se("rect",{x:PL,y:0,width:IW,height:H2}));
+  df.appendChild(gr);df.appendChild(cl);svg.appendChild(df);
+  [lo,(lo+hi)/2,hi].forEach(function(v){
+    svg.appendChild(se("line",{x1:PL,y1:ty(v),x2:PL+IW,y2:ty(v),stroke:"rgba(0,0,0,.07)","stroke-width":"1"}));
+    var t=se("text");t.setAttribute("x",PL-4);t.setAttribute("y",ty(v)+4);t.setAttribute("text-anchor","end");t.setAttribute("font-size","9.5");t.setAttribute("fill","#a09e99");t.setAttribute("font-family","sans-serif");t.textContent=v.toFixed(1);svg.appendChild(t);
+  });
+  var ap=["M "+tx(0).toFixed(1)+","+(PT+IH)].concat(cv.map(function(d,i){return"L "+tx(i).toFixed(1)+","+ty(parseFloat(d.value)).toFixed(1)})).concat(["L "+tx(cv.length-1).toFixed(1)+","+(PT+IH),"Z"]).join(" ");
+  svg.appendChild(se("path",{d:ap,fill:"url(#g)","clip-path":"url(#c)"}));
+  var lp=cv.map(function(d,i){return tx(i).toFixed(1)+","+ty(parseFloat(d.value)).toFixed(1)}).join(" ");
+  svg.appendChild(se("polyline",{points:lp,fill:"none",stroke:"#0a7c5c","stroke-width":"2","stroke-linejoin":"round","stroke-linecap":"round"}));
+  // x-axis: show PT hours 12a,6a,12p,6p
+  var ptOffset=toPT(tStart).getTimezoneOffset()*60000;
+  [0,6,12,18,24].forEach(function(h){
+    var tickT=new Date(tStart);tickT.setUTCHours(tickT.getUTCHours()-toPT(tStart).getHours()+h);
+    var xf=(tickT-tStart)/tSpan;if(xf<0||xf>1)return;
+    var x=PL+xf*IW,lb=h===0?"12a":h<12?h+"a":h===12?"12p":h===24?"":h>12?(h-12)+"p":h+"p";
+    svg.appendChild(se("line",{x1:x,y1:PT+IH,x2:x,y2:PT+IH+4,stroke:"rgba(0,0,0,.08)","stroke-width":"1"}));
+    var t=se("text");t.setAttribute("x",x);t.setAttribute("y",H2-2);t.setAttribute("text-anchor","middle");t.setAttribute("font-size","9.5");t.setAttribute("fill","#a09e99");t.setAttribute("font-family","sans-serif");t.textContent=lb;svg.appendChild(t);
+  });
+  if(offset===0){
+    var now=new Date();
+    var f=Math.max(0,Math.min(1,(now-tStart)/tSpan));
+    var nx=PL+f*IW,ni=Math.min(Math.round(f*(cv.length-1)),cv.length-1),ny=ty(vals[ni]);
+    svg.appendChild(se("line",{x1:nx,y1:PT,x2:nx,y2:PT+IH,stroke:"#1a1a18","stroke-width":"1","stroke-dasharray":"2,3",opacity:"0.3"}));
+    svg.appendChild(se("circle",{cx:nx,cy:ny,r:"4.5",fill:"#1a1a18",stroke:"white","stroke-width":"2.5"}));
+  }
+}
+
+function rh(ev){
+  var g=document.getElementById("hilo");g.innerHTML="";
+  if(!ev.length){g.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0">No data.</div>';return}
+  var sorted=ev.slice().sort(function(a,b){return new Date(a.eventDate)-new Date(b.eventDate)});
+  var firstIsHigh=sorted.length>1&&parseFloat(sorted[0].value)>parseFloat(sorted[1].value);
+  var today=ds(offset);
+  sorted.forEach(function(e,idx){
+    var v=parseFloat(e.value),hi=(idx%2===0)===firstIsHigh;
+    var eDate=ptDateStr(new Date(e.eventDate));
+    var pill="";
+    if(eDate<today)pill='<div class="hilo-pill">Yesterday</div>';
+    else if(eDate>today)pill='<div class="hilo-pill">Tomorrow</div>';
+    var c=document.createElement("div");c.className="hilo-card "+(hi?"hi":"lo");
+    c.innerHTML=pill+'<div class="hilo-type">'+(hi?"High":"Low")+'</div><div class="hilo-val">'+v.toFixed(2)+'<span>m</span></div><div class="hilo-time">'+fm(e.eventDate)+'</div>';
+    g.appendChild(c);
+  });
+}
+
+function sh(id){document.getElementById(id).classList.remove("hidden")}
+function hd(id){document.getElementById(id).classList.add("hidden")}
+
+async function ld(o){
+  hd("beach-wrap");hd("main");hd("err");sh("loading");
+  document.getElementById("dlabel").textContent=fl(o);
+  if(o!==0)document.getElementById("tide-heading").textContent="Tides";
+  if(cache[o]){ap2(cache[o].cv,cache[o].hl,o);return}
+  try{
+    var date=ds(o);
+    var res=await Promise.all([getCurve(date),getHiLo(date)]);
+    cache[o]={cv:res[0],hl:res[1]};
+    ap2(res[0],res[1],o);
+  }catch(e){console.error(e);hd("loading");sh("err")}
+}
+
+function ap2(cv,hl,o){
+  hd("loading");sh("main");
+  if(o===0&&cv.length){sh("beach-wrap");uo(cv,hl)}
+  rc(cv);rh(hl);
+}
+
+function bt(){
+  var c=document.getElementById("tabs");
+  for(var i=0;i<=6;i++){
+    (function(i){
+      var b=document.createElement("button");b.className="tab"+(i===0?" active":"");b.textContent=tl(i);
+      b.addEventListener("click",function(){if(offset===i)return;offset=i;c.querySelectorAll(".tab").forEach(function(t,idx){t.classList.toggle("active",idx===i)});ld(i)});
+      c.appendChild(b);
+    })(i);
+  }
+}
+
+bt();loop();ld(0);
+</script>
+</body>
+</html>
